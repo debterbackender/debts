@@ -1,0 +1,7 @@
+.github
+.idea
+__pycache__
+venv
+.gitignore
+.git
+uwsgi_params

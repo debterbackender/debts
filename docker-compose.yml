@@ -1,0 +1,56 @@
+version: '3.7'
+
+services:
+  nginx:
+    build: ./nginx
+    volumes:
+      - static_volume:/home/app/web/staticfiles
+      - media_volume:/home/app/web/mediafiles
+    ports:
+      - 80:80
+    depends_on:
+      - web
+
+  web:
+    build:
+      context: ./debt_backend
+      dockerfile: Dockerfile
+    command: gunicorn debtsBack.wsgi:application --bind 0.0.0.0:8000
+    volumes:
+      - static_volume:/home/app/web/staticfiles
+      - media_volume:/home/app/web/mediafiles
+    expose:
+      - 8000
+    env_file:
+      - ./.env
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: postgres:latest
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    env_file:
+      - ./.env.db
+
+  redis:
+    image: redis:alpine
+
+  notifications:
+    build:
+      context: ./notifications
+      dockerfile: Dockerfile
+    expose:
+      - 8082
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - REDIS_URL=${REDIS_URL}
+    depends_on:
+      - web
+      - redis
+
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:

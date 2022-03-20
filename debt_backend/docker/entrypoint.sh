@@ -2,7 +2,7 @@
 
 echo "Waiting for postgres..."
 
-while ! nc -z ${SQL_HOST} ${SQL_PORT} &> /dev/null;
+while ! nc -z ${POSTGRES_HOST} ${POSTGRES_PORT} &> /dev/null;
 do
     echo "waiting for PostgreSQL to start..."
     sleep 3;

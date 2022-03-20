@@ -1,5 +1,4 @@
 .env
-.env.db
 *.pyc
 __pycache
 .DS_Store

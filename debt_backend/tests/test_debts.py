@@ -361,7 +361,7 @@ class DebtRequestTestCase(DefaultAPITestCase):
 
         with delete_after(user_1):
             with self.restore_signals(), \
-                    mock.patch('redis_utils.send_to_pub') as mocked_send_to_pub:
+                    mock.patch('redis_utils.SendEventService') as mocked_send:
                 response = self.client.post(
                     reverse('debts:debts_requests'),
                     data={
@@ -374,8 +374,8 @@ class DebtRequestTestCase(DefaultAPITestCase):
 
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-            self.assertTrue(mocked_send_to_pub.called)
-            events = mocked_send_to_pub.call_args_list[0][0][0]
+            self.assertTrue(mocked_send.called)            
+            events = mocked_send.call_args.args[0]
 
             self.assertEqual(len(events), 1)
             event_created = events[0]
@@ -395,7 +395,7 @@ class DebtRequestTestCase(DefaultAPITestCase):
                 creditor=user_1,
                 debtor=self.user,
             )
-            with self.restore_signals(), mock.patch('redis_utils.send_to_pub') as mocked_send_to_pub:
+            with self.restore_signals(), mock.patch('redis_utils.SendEventService') as mocked_send:
                 response = self.client.patch(
                     reverse('debts:debts_requests'),
                     data={
@@ -405,8 +405,8 @@ class DebtRequestTestCase(DefaultAPITestCase):
                 )
             self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-            self.assertTrue(mocked_send_to_pub.called)
-            events = mocked_send_to_pub.call_args_list[0][0][0]
+            self.assertTrue(mocked_send.called)
+            events = mocked_send.call_args.args[0]
 
             self.assertEqual(len(events), 1)
             event_debt_request_updated = events[0]
@@ -428,7 +428,7 @@ class DebtRequestTestCase(DefaultAPITestCase):
                 creditor=user_1,
                 debtor=self.user,
             )
-            with self.restore_signals(), mock.patch('redis_utils.send_to_pub') as mocked_send_to_pub:
+            with self.restore_signals(), mock.patch('redis_utils.SendEventService') as mocked_send:
                 response = self.client.patch(
                     reverse('debts:debts_requests'),
                     data={
@@ -438,8 +438,8 @@ class DebtRequestTestCase(DefaultAPITestCase):
                 )
             self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
-            self.assertTrue(mocked_send_to_pub.called)
-            events = mocked_send_to_pub.call_args_list[0][0][0]
+            self.assertTrue(mocked_send.called)
+            events = mocked_send.call_args.args[0]
 
             self.assertEqual(len(events), 1)
             event_debt_request_updated = events[0]

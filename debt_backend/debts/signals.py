@@ -29,7 +29,7 @@ def notify_request_created(sender, instance: DebtRequest, created: bool, **kwarg
         ).data,
     }
     event_created = redis_utils.Event(to_user.pk, data)
-    redis_utils.send_to_pub([event_created])
+    event_created.send()
 
 
 @receiver(debt_request_done)
@@ -58,4 +58,4 @@ def notify_debt_request_creator(sender: DebtRequest, status: str, **kwargs):
         data['debt'] = debt_data
 
     event_debt_request_updated = redis_utils.Event(str(creator.id), data)
-    redis_utils.send_to_pub([event_debt_request_updated])
+    event_debt_request_updated.send()

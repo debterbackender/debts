@@ -14,8 +14,20 @@ class Event(NamedTuple):
             'data': self.data,
         }
 
+    def send(self):
+        SendEventService([self]).send()
 
-def send_to_pub(events: Iterable[Event]):
+    @classmethod
+    def multiple_send(cls, events: Iterable['Event']):
+        SendEventService(events).send()
+
+
+class SendEventService:
     connection = get_redis_connection("default")
-    payload = JSONRenderer().render([event.to_dict() for event in events])
-    connection.publish("events", payload)
+
+    def __init__(self, events: Iterable[Event]):
+        self._events = events
+
+    def send(self):
+        payload = JSONRenderer().render([event.to_dict() for event in self._events])
+        self.connection.publish("events", payload)

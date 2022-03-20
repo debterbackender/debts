@@ -11,4 +11,4 @@ func getEnv(key, fallback string) string {
 }
 
 var SecretKey = getEnv("SECRET_KEY", "django-insecure-@dq58qc12(x=tipmduc%hva_ogn^)th_xpz=r&%4hixcw+%_^3")
-var RedisUrl = getEnv("REDIS_URL", "redis://localhost:6364/0")
+var RedisUrl = getEnv("REDIS_URL", "redis://127.0.0.1:6379/0")

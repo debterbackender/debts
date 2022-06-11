@@ -33,6 +33,22 @@ func RedisHandler() {
 }
 
 
+func UserReadHandler() {
+
+}
+
+
+func UserWriteHandler(user *users.User) {
+	for {
+		for message := range user.MessageChannel {
+			if err := user.Send(websocket.TextMessage, message); err != nil {
+				log.Println("Send Fail:", err)
+				break
+			}
+		}
+	}
+}
+
 func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -46,6 +62,10 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("Error on read access:", err)
 		return
 	}
+	if mt != websocket.TextMessage {
+		log.Println("Error: Message is not text")
+		return
+	}
 	jwtToken := string(message)
 	userId, err := GetUserIdFromJWT(jwtToken)
 	if err != nil {
@@ -56,14 +76,14 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 	user := users.RegisterConnection(userId, conn)
 	defer user.CloseConnection(conn)
 
-	err = conn.WriteMessage(mt, CONNECTION_CREATED_MESSAGE)
+	err = conn.WriteMessage(websocket.TextMessage, CONNECTION_CREATED_MESSAGE)
 	if err != nil {
 		log.Println("Error on OK:", err)
 		return
 	}
 	for {
 		for message := range user.MessageChannel {
-			if err := user.Send(mt, message); err != nil {
+			if err := user.Send(websocket.TextMessage, message); err != nil {
 				log.Println("Send Fail:", err)
 				break
 			}

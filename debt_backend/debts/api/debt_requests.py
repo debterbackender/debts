@@ -13,7 +13,7 @@ from debts.serializers import (
     OutputDebtRequestSerializer,
     InputDebtRequestUpdateSerializer,
 )
-from debts.services import CreateDebtRequestService, DebtRequestUpdateService
+from debts.services import CreateDebtRequestService, DebtRequestUpdateStatusService
 
 
 class DebtRequestAPIView(APIView):
@@ -27,7 +27,7 @@ class DebtRequestAPIView(APIView):
         },
     )
     def get(self, request):
-        debt_requests = selectors.get_related_debt_requests(request.user)
+        debt_requests = selectors.get_active_debt_requests(request.user)
 
         output_serializer = OutputDebtRequestSerializer(
             debt_requests,
@@ -87,12 +87,12 @@ One of Errors:
         serializer = InputDebtRequestUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            debt_request = DebtRequestUpdateService(
+            debt_request = DebtRequestUpdateStatusService(
                 **serializer.validated_data,
                 creator=self.request.user,
             ).update_debt_request()
-        except DebtRequest.DoesNotExist:
-            raise NotFound
+        except DebtRequest.DoesNotExist as exc:
+            raise NotFound from exc
 
         if debt_request:
             data = OutputDebtSerializer(debt_request).data

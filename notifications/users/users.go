@@ -11,9 +11,9 @@ type UserId = string
 var AllConnections = map[UserId](*User){}
 
 type User struct {
-	MessageChannel chan []byte
-	connections []*websocket.Conn
-	lock *sync.Mutex
+	MessageChannel 	chan []byte
+	connections 	[]*websocket.Conn
+	lock 			*sync.Mutex
 }
 
 

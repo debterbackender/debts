@@ -16,10 +16,15 @@ schema_view = get_schema_view(
 )
 
 
-urlpatterns = [
+api_urlpatterns = [
     path('debts/', include('debts.urls', 'debts')),
     path('accounts/', include('accounts.urls', 'accounts')),
+    path('notifications/', include('notifications.urls', 'notifications')),
+]
 
+
+urlpatterns = [
+    path('api/', include(api_urlpatterns)),
     path('admin/', admin.site.urls),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),  # noqa
 ]

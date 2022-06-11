@@ -16,7 +16,7 @@ def get_common_debts(user: Account, friend: Account) -> QuerySet[Debt]:
         .order_by('-created')
 
 
-def get_related_debt_requests(user: Account) -> QuerySet[Debt]:
+def get_active_debt_requests(user: Account) -> QuerySet[Debt]:
     return DebtRequest.objects \
         .filter(Q(debtor=user) | Q(creditor=user)) \
         .filter(connected_debt__isnull=True, declined=False) \

@@ -8,8 +8,16 @@ from django.utils import timezone
 class Debt(models.Model):
     id = models.UUIDField(default=uuid.uuid4, primary_key=True)
     money = models.DecimalField(max_digits=12, decimal_places=2, null=False)
-    creditor = models.ForeignKey('accounts.Account', on_delete=models.CASCADE, related_name='creditor_debts')
-    debtor = models.ForeignKey('accounts.Account', on_delete=models.CASCADE, related_name='debtor_debts')
+    creditor = models.ForeignKey(
+        'accounts.Account',
+        on_delete=models.CASCADE,
+        related_name='creditor_debts',
+    )
+    debtor = models.ForeignKey(
+        'accounts.Account',
+        on_delete=models.CASCADE,
+        related_name='debtor_debts',
+    )
     description = models.TextField(default='', blank=True, null=False)
 
     created = models.DateTimeField(auto_now_add=True)
@@ -30,17 +38,17 @@ class Debt(models.Model):
         related_query_name='from_debt',
     )
 
+    @property
     def is_active(self) -> bool:
-        if not self.closed_request:
-            return True
-        return not self.closed_request.is_closed
+        return not (self.closed_request and self.closed_request.is_closed)
 
     def close_debt(self) -> 'ClosedDebtRequest':
-        closed_debt_request, _ = ClosedDebtRequest.objects.get_or_create(
+        closed_debt_request, created = ClosedDebtRequest.objects.get_or_create(
             from_debt=self
         )
+        if created:
+            self.save()
         closed_debt_request.close()
-        closed_debt_request.refresh_from_db()
         return closed_debt_request
 
     @classmethod
@@ -85,7 +93,7 @@ class DebtRequest(models.Model):
     def connected_debt(self) -> Optional[Debt]:
         try:
             return self._connected_debt
-        except DebtRequest._connected_debt.RelatedObjectDoesNotExist:  # noqa
+        except DebtRequest._connected_debt.RelatedObjectDoesNotExist:  # pylint: disable=E1101
             return None
 
     @connected_debt.setter
@@ -103,7 +111,7 @@ class DebtRequest(models.Model):
 class ClosedDebtRequest(models.Model):
     id = models.UUIDField(default=uuid.uuid4, primary_key=True)
     is_closed = models.BooleanField(default=False)
-    
+
     created = models.DateTimeField(auto_now_add=True)
     closed = models.DateTimeField(null=True)
 
@@ -111,7 +119,7 @@ class ClosedDebtRequest(models.Model):
     def from_debt(self) -> Optional[Debt]:
         try:
             return self._from_debt
-        except ClosedDebtRequest._from_debt.RelatedObjectDoesNotExist:
+        except ClosedDebtRequest._from_debt.RelatedObjectDoesNotExist:  # pylint: disable=E1101
             return None
 
     @from_debt.setter

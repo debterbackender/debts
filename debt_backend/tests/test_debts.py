@@ -1,11 +1,13 @@
-from unittest import mock
-
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import Account
 from debts.models import DebtRequest, Debt
+from notifications.constants import (
+    EVENT_CREATED,
+    EVENT_STATUS_UPDATED,
+)
 from tests.base import DefaultAPITestCase
 from tests.factories import (
     AccountFactory,
@@ -67,7 +69,10 @@ class DebtRequestTestCase(DefaultAPITestCase):
             )
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-            debt_request_user_is_creditor = DebtRequest.objects.filter(creditor=self.user, debtor=user_1)
+            debt_request_user_is_creditor = DebtRequest.objects.filter(
+                creditor=self.user,
+                debtor=user_1,
+            )
             self.assertTrue(debt_request_user_is_creditor.exists())
             debt_request_user_is_creditor.delete()
 
@@ -81,7 +86,10 @@ class DebtRequestTestCase(DefaultAPITestCase):
                 })
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-            debt_request_user_is_debtor = DebtRequest.objects.filter(debtor=self.user, creditor=user_1)
+            debt_request_user_is_debtor = DebtRequest.objects.filter(
+                debtor=self.user,
+                creditor=user_1,
+            )
             self.assertTrue(debt_request_user_is_debtor.exists())
             debt_request_user_is_debtor.delete()
 
@@ -155,11 +163,11 @@ class DebtRequestTestCase(DefaultAPITestCase):
 
         debt_requests_data = response.data
         self.assertEqual(len(debt_requests), len(debt_requests_data))
-        for dr, dr_data in zip(debt_requests, debt_requests_data):
-            self.assertEqual(str(dr.id), dr_data['id'])
-            self.assertEqual(str(dr.money), dr_data['money'])
-            self.assertEqual(str(dr.creditor_id), dr_data['creditor']['id'])
-            self.assertEqual(str(dr.debtor_id), dr_data['debtor']['id'])
+        for debt_request, dr_data in zip(debt_requests, debt_requests_data):
+            self.assertEqual(str(debt_request.id), dr_data['id'])
+            self.assertEqual(str(debt_request.money), dr_data['money'])
+            self.assertEqual(str(debt_request.creditor_id), dr_data['creditor']['id'])
+            self.assertEqual(str(debt_request.debtor_id), dr_data['debtor']['id'])
 
     def test_list_debt_requests_with_used_debts_success(self):
         creditor_debt_requests = DebtRequestFactory.create_batch(
@@ -211,11 +219,11 @@ class DebtRequestTestCase(DefaultAPITestCase):
             self.assertNotIn(bad_debt_request_id, debt_requests_data_ids)
 
         self.assertEqual(len(debt_requests), len(debt_requests_data))
-        for dr, dr_data in zip(debt_requests, debt_requests_data):
-            self.assertEqual(str(dr.id), dr_data['id'])
-            self.assertEqual(str(dr.money), dr_data['money'])
-            self.assertEqual(str(dr.creditor_id), dr_data['creditor']['id'])
-            self.assertEqual(str(dr.debtor_id), dr_data['debtor']['id'])
+        for debt_request, dr_data in zip(debt_requests, debt_requests_data):
+            self.assertEqual(str(debt_request.id), dr_data['id'])
+            self.assertEqual(str(debt_request.money), dr_data['money'])
+            self.assertEqual(str(debt_request.creditor_id), dr_data['creditor']['id'])
+            self.assertEqual(str(debt_request.debtor_id), dr_data['debtor']['id'])
 
     def test_accept_debt_request_success(self):
         user_1 = AccountFactory.create()
@@ -360,8 +368,7 @@ class DebtRequestTestCase(DefaultAPITestCase):
         self.user.friends.add(user_1)
 
         with delete_after(user_1):
-            with self.restore_signals(), \
-                    mock.patch('redis_utils.SendEventService') as mocked_send:
+            with self.restore_signals(), self.patch_send_notifications_service() as mocked_send:
                 response = self.client.post(
                     reverse('debts:debts_requests'),
                     data={
@@ -374,18 +381,19 @@ class DebtRequestTestCase(DefaultAPITestCase):
 
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-            self.assertTrue(mocked_send.called)            
-            events = mocked_send.call_args.args[0]
+            self.assertTrue(mocked_send.is_called())
+            events = mocked_send.get_last_events()
 
             self.assertEqual(len(events), 1)
             event_created = events[0]
-            self.assertEqual(event_created.user_id, user_1.id)
-            self.assertEqual(event_created.data['event'], 'created')
-            self.assertEqual(event_created.data['type'], 'DebtRequest')
-            self.assertEqual(event_created.data['object']['money'], '1200.00')
+            self.assertEqual(event_created.event_type, EVENT_CREATED)
+
+            event_object = event_created.event_data['object']
+            self.assertEqual(event_object['type'], 'DebtRequest')
 
             debt_request = DebtRequest.objects.get(creditor=self.user, debtor=user_1)
-            self.assertEqual(event_created.data['object']['id'], str(debt_request.id))
+            self.assertEqual(event_object['id'], str(debt_request.id))
+            self.assertEqual(event_object['money'], str(debt_request.money))
 
     def test_notify_accepted_debt_request_creator_success(self):
         user_1 = AccountFactory.create()
@@ -395,7 +403,7 @@ class DebtRequestTestCase(DefaultAPITestCase):
                 creditor=user_1,
                 debtor=self.user,
             )
-            with self.restore_signals(), mock.patch('redis_utils.SendEventService') as mocked_send:
+            with self.restore_signals(), self.patch_send_notifications_service() as mocked_send:
                 response = self.client.patch(
                     reverse('debts:debts_requests'),
                     data={
@@ -405,20 +413,24 @@ class DebtRequestTestCase(DefaultAPITestCase):
                 )
             self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-            self.assertTrue(mocked_send.called)
-            events = mocked_send.call_args.args[0]
+            self.assertTrue(mocked_send.is_called())
+            events = mocked_send.get_last_events()
 
             self.assertEqual(len(events), 1)
+
             event_debt_request_updated = events[0]
-            self.assertEqual(event_debt_request_updated.user_id, str(user_1.id))
-            self.assertEqual(event_debt_request_updated.data['event'], 'status_updated')
-            self.assertEqual(event_debt_request_updated.data['type'], 'DebtRequest')
-            self.assertEqual(event_debt_request_updated.data['status'], 'accept')
+            self.assertEqual(event_debt_request_updated.event_type, EVENT_STATUS_UPDATED)
+
+            event_data = event_debt_request_updated.event_data
+            self.assertEqual(event_data['status'], 'accept')
+
+            event_object = event_data['object']
+            self.assertEqual(event_object['type'], 'DebtRequest')
 
             debt_request = DebtRequest.objects.get(debtor=self.user, creditor=user_1)
-            self.assertEqual(event_debt_request_updated.data['object']['id'], str(debt_request.id))
-            self.assertEqual(event_debt_request_updated.data['object']['money'], str(debt_request.money))
-            self.assertEqual(event_debt_request_updated.data['object']['is_active'], debt_request.is_active)
+            self.assertEqual(event_object['id'], str(debt_request.id))
+            self.assertEqual(event_object['money'], str(debt_request.money))
+            self.assertEqual(event_object['is_active'], debt_request.is_active)
 
     def test_notify_declined_debt_request_creator_success(self):
         user_1 = AccountFactory.create()
@@ -428,7 +440,7 @@ class DebtRequestTestCase(DefaultAPITestCase):
                 creditor=user_1,
                 debtor=self.user,
             )
-            with self.restore_signals(), mock.patch('redis_utils.SendEventService') as mocked_send:
+            with self.restore_signals(), self.patch_send_notifications_service() as mocked_send:
                 response = self.client.patch(
                     reverse('debts:debts_requests'),
                     data={
@@ -438,17 +450,20 @@ class DebtRequestTestCase(DefaultAPITestCase):
                 )
             self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
-            self.assertTrue(mocked_send.called)
-            events = mocked_send.call_args.args[0]
+            self.assertTrue(mocked_send.is_called())
+            events = mocked_send.get_last_events()
 
             self.assertEqual(len(events), 1)
             event_debt_request_updated = events[0]
-            self.assertEqual(event_debt_request_updated.user_id, str(user_1.id))
-            self.assertEqual(event_debt_request_updated.data['event'], 'status_updated')
-            self.assertEqual(event_debt_request_updated.data['type'], 'DebtRequest')
-            self.assertEqual(event_debt_request_updated.data['status'], 'decline')
+            self.assertEqual(event_debt_request_updated.event_type, EVENT_STATUS_UPDATED)
+
+            event_data = event_debt_request_updated.event_data
+            self.assertEqual(event_data['status'], 'decline')
+
+            event_object = event_data['object']
+            self.assertEqual(event_object['type'], 'DebtRequest')
 
             debt_request = DebtRequest.objects.get(debtor=self.user, creditor=user_1)
-            self.assertEqual(event_debt_request_updated.data['object']['id'], str(debt_request.id))
-            self.assertEqual(event_debt_request_updated.data['object']['money'], str(debt_request.money))
-            self.assertEqual(event_debt_request_updated.data['object']['is_active'], debt_request.is_active)
+            self.assertEqual(event_object['id'], str(debt_request.id))
+            self.assertEqual(event_object['money'], str(debt_request.money))
+            self.assertEqual(event_object['is_active'], debt_request.is_active)

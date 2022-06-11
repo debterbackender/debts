@@ -51,7 +51,7 @@ class CreateDebtRequestService:
             )
 
 
-class DebtRequestUpdateService:
+class DebtRequestUpdateStatusService:
     def __init__(
             self,
             debt_request_id: uuid.UUID,
@@ -61,6 +61,14 @@ class DebtRequestUpdateService:
         self.debt_request = DebtRequest.objects.get(pk=debt_request_id)
         self.status = status
         self.creator = creator
+
+    def update_debt_request_from_admin(self) -> Optional[Debt]:
+        self._validate_is_not_active()
+
+        if self.status == constants.STATUS_ACCEPT:
+            return self._accept_debt_request()
+        elif self.status == constants.STATUS_DECLINE:
+            return self._decline_debt_request()
 
     def update_debt_request(self) -> Optional[Debt]:
         result = self._update_debt_request()

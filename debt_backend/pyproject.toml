@@ -1,0 +1,43 @@
+[tool.poetry]
+name = "debt_backend"
+version = "0.1.0"
+description = ""
+authors = ["debterbackender <debterhuetor32@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+Django = "4.0"
+djangorestframework = "3.13.1"
+gunicorn = "20.1.0"
+djangorestframework-simplejwt = "5.0.0"
+django-redis = "5.2.0"
+psycopg2 = "2.9.2"
+drf-yasg = "1.20.0"
+django-object-actions = "4.0.0"
+
+[tool.poetry.dev-dependencies]
+kolo = "1.3.8"
+pylint = "2.13.3"
+pylint-django = "2.5.0"
+factory-boy = "3.2.1"
+
+[tool.pylint.MASTER]
+max_line_length = 100
+disable = [
+    "C0111",
+    "C0115",
+    "C0415",
+    "C0116",
+    "E5142",
+    "W0223",
+]
+load-plugins=[
+    'pylint.extensions.pylint_django',
+]
+
+[tool.pylint.PYLINT_DJANGO]
+django-settings-module = "debtsBackend.settings"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

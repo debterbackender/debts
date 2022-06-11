@@ -3,8 +3,13 @@ from django.dispatch import receiver, Signal
 
 from debts import constants
 from debts.models import DebtRequest
-from debts.serializers import OutputDebtRequestSerializer, OutputDebtSerializer
-import redis_utils
+
+from notifications.constants import EVENT_CREATED, EVENT_STATUS_UPDATED
+from notifications.models import Notification
+from notifications.serializers.debts import (
+    DebtRequestEventCreatedSerializer,
+    DebtRequestEventStatusUpdatedSerializer,
+)
 
 
 debt_request_done = Signal()
@@ -20,16 +25,16 @@ def notify_request_created(sender, instance: DebtRequest, created: bool, **kwarg
     else:
         to_user = instance.debtor
 
-    data = {
-        'event': 'created',
-        'type': 'DebtRequest',
-        'object': OutputDebtRequestSerializer(
-            instance,
-            context={'user': to_user},
-        ).data,
-    }
-    event_created = redis_utils.Event(to_user.pk, data)
-    event_created.send()
+    event_data = DebtRequestEventCreatedSerializer({
+        'object': instance,
+    }).data
+    notification: Notification
+    notification = Notification.objects.create(
+        event_type=EVENT_CREATED,
+        event_data=event_data,
+        to_user=to_user,
+    )
+    notification.send()
 
 
 @receiver(debt_request_done)
@@ -37,25 +42,13 @@ def notify_debt_request_creator(sender: DebtRequest, status: str, **kwargs):
     if status not in (constants.STATUS_ACCEPT, constants.STATUS_DECLINE):
         raise Exception("Status is incorrect!")
 
-    creator = sender.creator
-
-    data = {
-        'event': 'status_updated',
-        'type': 'DebtRequest',
-        'object': OutputDebtRequestSerializer(
-            sender,
-            context={'user': creator},
-        ).data,
+    event_data = DebtRequestEventStatusUpdatedSerializer({
+        'object': sender,
         'status': status,
-    }
-    if status == constants.STATUS_ACCEPT:
-        debt = sender.connected_debt
-        debt_data = {
-            'type': 'Debt',
-            'object': OutputDebtSerializer(debt).data,
-        }
-
-        data['debt'] = debt_data
-
-    event_debt_request_updated = redis_utils.Event(str(creator.id), data)
-    event_debt_request_updated.send()
+    }).data
+    notification = Notification.objects.create(
+        event_type=EVENT_STATUS_UPDATED,
+        event_data=event_data,
+        to_user=sender.creator,
+    )
+    notification.send()

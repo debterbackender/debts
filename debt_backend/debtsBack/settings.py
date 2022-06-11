@@ -32,9 +32,11 @@ INSTALLED_APPS = [
     'drf_yasg',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+    'django_object_actions',
 
     'debts',
     'accounts',
+    'notifications',
 ]
 
 MIDDLEWARE = [
@@ -45,6 +47,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "kolo.middleware.KoloMiddleware",
 ]
 
 ROOT_URLCONF = 'debtsBack.urls'
